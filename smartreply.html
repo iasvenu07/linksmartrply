@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LinkedGen — LinkedIn Caption & Reply Generator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root {
+    --bg: #0a0f1a;
+    --card: #111827;
+    --card2: #1a2332;
+    --fg: #f0f2f5;
+    --mt: #8899aa;
+    --ac: #e8a838;
+    --glow: rgba(232,168,56,0.25);
+    --cy: #38bdf8;
+    --bd: #1e293b;
+    --gn: #34d399;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+h1, h2, h3, h4 { font-family: 'Sora', sans-serif; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 3px; }
+
+/* Background orbs */
+.bg-mesh { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.4; animation: orbF 12s ease-in-out infinite; }
+.orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, var(--glow), transparent 70%); top: -10%; left: -5%; }
+.orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(56,189,248,0.15), transparent 70%); bottom: -15%; right: -5%; animation-delay: -4s; }
+.orb-3 { width: 300px; height: 300px; background: radial-gradient(circle, rgba(232,168,56,0.1), transparent 70%); top: 50%; left: 50%; transform: translate(-50%,-50%); animation-delay: -8s; }
+@keyframes orbF {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    33% { transform: translate(40px,-30px) scale(1.08); }
+    66% { transform: translate(-20px,20px) scale(0.95); }
+}
+
+/* Particles */
+.pf { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.pt { position: absolute; width: 2px; height: 2px; background: var(--ac); border-radius: 50%; opacity: 0; animation: ptU 8s ease-in-out infinite; }
+@keyframes ptU {
+    0% { opacity: 0; transform: translateY(0); }
+    20% { opacity: 0.5; }
+    80% { opacity: 0.5; }
+    100% { opacity: 0; transform: translateY(-180px) translateX(25px); }
+}
+
+/* Toasts */
+.tw { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+.tt { padding: 14px 20px; border-radius: 12px; background: var(--card); border: 1px solid var(--bd); color: var(--fg); font-size: 14px; font-weight: 500; box-shadow: 0 8px 30px rgba(0,0,0,0.4); animation: ttI 0.4s cubic-bezier(0.22,1,0.36,1) forwards; display: flex; align-items: center; gap: 10px; }
+.tt.to { animation: ttO 0.3s ease forwards; }
+@keyframes ttI { from { opacity: 0; transform: translateX(50px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ttO { to { opacity: 0; transform: translateX(50px); } }
+
+/* Input card */
+.icard { background: var(--card); border: 1px solid var(--bd); border-radius: 16px; padding: 24px; transition: all 0.3s ease; position: relative; overflow: hidden; }
+.icard::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--ac), var(--cy)); opacity: 0; transition: opacity 0.3s; }
+.icard:hover { background: var(--card2); }
+.icard:hover::before { opacity: 1; }
+
+/* Textarea */
+.tarea { width: 100%; background: rgba(255,255,255,0.04); border: 1.5px solid var(--bd); border-radius: 14px; padding: 18px; color: var(--fg); font-size: 15px; font-family: 'DM Sans', sans-serif; resize: vertical; min-height: 120px; transition: all 0.3s ease; line-height: 1.6; }
+.tarea:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 4px var(--glow); background: rgba(255,255,255,0.06); }
+.tarea::placeholder { color: var(--mt); opacity: 0.6; }
+
+/* Select */
+.ssel { background: rgba(255,255,255,0.04); border: 1.5px solid var(--bd); border-radius: 10px; padding: 10px 36px 10px 14px; color: var(--fg); font-size: 14px; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.2s ease; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238899aa' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+.ssel:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px var(--glow); }
+.ssel option { background: var(--card); color: var(--fg); }
+
+/* Result card */
+.rcard { background: rgba(17,24,39,0.6); border: 1px solid var(--bd); border-radius: 14px; padding: 20px; transition: all 0.25s ease; backdrop-filter: blur(10px); }
+.rcard:hover { border-color: rgba(232,168,56,0.3); background: rgba(26,35,50,0.7); }
+.rcard.cflash { animation: cflash 0.4s ease; }
+@keyframes cflash {
+    0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(52,211,153,0.1); }
+    100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Stagger in */
+.sin { animation: sin 0.5s cubic-bezier(0.22,1,0.36,1) forwards; opacity: 0; }
+@keyframes sin { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Shimmer */
+.shim { background: linear-gradient(90deg, var(--card) 25%, var(--card2) 50%, var(--card) 75%); background-size: 200% 100%; animation: shim 1.5s ease-in-out infinite; border-radius: 10px; }
+@keyframes shim { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Primary button */
+.btn1 { background: linear-gradient(135deg, var(--ac), #d4922e); color: #0a0f1a; font-weight: 700; padding: 14px 28px; border-radius: 12px; border: none; cursor: pointer; font-size: 15px; transition: all 0.25s cubic-bezier(0.22,1,0.36,1); box-shadow: 0 4px 20px var(--glow); display: inline-flex; align-items: center; gap: 8px; font-family: 'Sora', sans-serif; }
+.btn1:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 30px rgba(232,168,56,0.4); }
+.btn1:active { transform: translateY(0) scale(0.98); }
+.btn1:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* Icon button */
+.btni { background: rgba(255,255,255,0.06); border: 1px solid var(--bd); color: var(--mt); width: 38px; height: 38px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.2s ease; }
+.btni:hover { background: rgba(232,168,56,0.15); border-color: var(--ac); color: var(--ac); }
+
+/* Tab button */
+.tbtn { padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.25s ease; border: 1.5px solid transparent; background: transparent; color: var(--mt); font-family: 'Sora', sans-serif; display: flex; align-items: center; gap: 8px; }
+.tbtn.act { background: rgba(232,168,56,0.12); color: var(--ac); border-color: rgba(232,168,56,0.3); }
+.tbtn:not(.act):hover { background: rgba(255,255,255,0.05); color: var(--fg); }
+
+/* Tags */
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.tag-ac { background: rgba(232,168,56,0.15); color: var(--ac); }
+.tag-cy { background: rgba(56,189,248,0.15); color: var(--cy); }
+.tag-mt { background: rgba(255,255,255,0.06); color: var(--mt); }
+
+/* Hashtag highlight */
+.htag { color: var(--cy); font-weight: 600; }
+
+/* Spinner */
+.spinner { width: 20px; height: 20px; border: 2.5px solid rgba(10,15,26,0.2); border-top-color: #0a0f1a; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .hero-t { font-size: 2rem !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- Background orbs -->
+<div class="bg-mesh">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+</div>
+
+<!-- Particles -->
+<div class="pf" id="pf"></div>
+
+<!-- Toasts -->
+<div class="tw" id="tw"></div>
+
+<!-- Main content wrapper -->
+<div style="position:relative;z-index:2">
+
+    <!-- Header -->
+    <header style="border-bottom:1px solid var(--bd);backdrop-filter:blur(16px);background:rgba(10,15,26,0.7);position:sticky;top:0;z-index:100;padding:16px 0">
+        <div style="max-width:1100px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:12px">
+                <div style="width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--ac),var(--cy))">
+                    <i class="fa-brands fa-linkedin" style="font-size:20px;color:#0a0f1a"></i>
+                </div>
+                <h4 style="font-size:18px;font-weight:800;letter-spacing:-0.5px">Linked<span style="color:var(--ac)">Gen</span></h4>
+            </div>
+            <span style="font-size:12px;padding:6px 12px;border-radius:20px;background:rgba(52,211,153,0.1);color:var(--gn);font-weight:600">
+                <i class="fa-solid fa-circle" style="font-size:6px;margin-right:4px"></i> Free Tool
+            </span>
+        </div>
+    </header>
+
+    <!-- Hero -->
+    <section style="padding:60px 24px 40px;text-align:center;max-width:750px;margin:0 auto">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(232,168,56,0.1);border:1px solid rgba(232,168,56,0.2);border-radius:30px;margin-bottom:20px;font-size:13px;color:var(--ac);font-weight:600">
+            <i class="fa-solid fa-bolt"></i> Smart LinkedIn Content
+        </div>
+        <h1 class="hero-t" style="font-size:3rem;font-weight:800;letter-spacing:-1.5px;line-height:1.15;margin-bottom:16px">
+            Craft LinkedIn Posts<br>
+            <span style="background:linear-gradient(135deg,var(--ac),var(--cy));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">That Drive Engagement</span>
+        </h1>
+        <p style="font-size:1.15rem;color:var(--mt);line-height:1.6;max-width:560px;margin:0 auto">
+            Enter your topic or context and generate professional captions and authentic replies — designed to maximize your LinkedIn presence.
+        </p>
+    </section>
+
+    <!-- Main App -->
+    <main style="max-width:1100px;margin:0 auto;padding:0 24px 80px">
+
+        <!-- Input Section -->
+        <section class="icard" style="margin-bottom:32px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+                <div style="width:32px;height:32px;background:rgba(232,168,56,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center">
+                    <i class="fa-solid fa-pen-nib" style="color:var(--ac);font-size:14px"></i>
+                </div>
+                <h3 style="font-size:16px;font-weight:700">Your Context / Topic</h3>
+            </div>
+            <textarea id="userInput" class="tarea" placeholder="e.g. Just launched our new SaaS product after 6 months of development. Key learnings about MVP approach, user feedback loops, and why we pivoted twice..." oninput="updateCharCount()"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:12px">
+                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <label style="font-size:11px;color:var(--mt);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Tone</label>
+                        <select id="toneSelect" class="ssel">
+                            <option value="professional">Professional</option>
+                            <option value="casual">Casual & Relatable</option>
+                            <option value="inspirational">Inspirational</option>
+                            <option value="storytelling">Storytelling</option>
+                            <option value="bold">Bold & Direct</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px">
+                        <label style="font-size:11px;color:var(--mt);text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Industry</label>
+                        <select id="indSelect" class="ssel">
+                            <option value="tech">Tech / SaaS</option>
+                            <option value="marketing">Marketing</option>
+                            <option value="finance">Finance</option>
+                            <option value="hr">HR / Recruiting</option>
+                            <option value="startup">Startup</option>
+                            <option value="general">General</option>
+                        </select>
+                    </div>
+                </div>
+                <span id="charCount" style="font-size:12px;color:var(--mt)">0 / 2000</span>
+            </div>
+        </section>
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap">
+            <button class="tbtn act" id="tabCap" onclick="switchTab('caption')">
+                <i class="fa-solid fa-file-lines"></i> Caption Generator
+            </button>
+            <button class="tbtn" id="tabRep" onclick="switchTab('reply')">
+                <i class="fa-solid fa-reply"></i> Reply Generator
+            </button>
+        </div>
+
+        <!-- Caption Panel -->
+        <div id="capPanel">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2 style="font-size:22px;font-weight:800;letter-spacing:-0.5px">Generated Captions</h2>
+                    <p style="font-size:13px;color:var(--mt);margin-top:4px">Click generate to create LinkedIn post captions from your context</p>
+                </div>
+                <button class="btn1" id="genCapBtn" onclick="generateCaptions()">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Captions
+                </button>
+            </div>
+            <div id="capResults" style="display:flex;flex-direction:column;gap:16px">
+                <div style="text-align:center;padding:60px 20px;color:var(--mt)">
+                    <i class="fa-solid fa-feather-pointed" style="font-size:40px;opacity:0.3;margin-bottom:16px;display:block"></i>
+                    <p style="font-size:15px;font-weight:500">Enter your topic above and click generate</p>
+                    <p style="font-size:13px;opacity:0.6;margin-top:6px">We'll create multiple caption variations for you</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reply Panel -->
+        <div id="repPanel" style="display:none">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2 style="font-size:22px;font-weight:800;letter-spacing:-0.5px">Generated Replies</h2>
+                    <p style="font-size:13px;color:var(--mt);margin-top:4px">Create authentic, engaging replies to boost conversation</p>
+                </div>
+                <button class="btn1" id="genRepBtn" onclick="generateReplies()">
+                    <i class="fa-solid fa-comments"></i> Generate Replies
+                </button>
+            </div>
+            <div id="repResults" style="display:flex;flex-direction:column;gap:16px">
+                <div style="text-align:center;padding:60px 20px;color:var(--mt)">
+                    <i class="fa-solid fa-comment-dots" style="font-size:40px;opacity:0.3;margin-bottom:16px;display:block"></i>
+                    <p style="font-size:15px;font-weight:500">Paste a LinkedIn post and generate authentic replies</p>
+                    <p style="font-size:13px;opacity:0.6;margin-top:6px">Multiple reply tones for strategic engagement</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer style="border-top:1px solid var(--bd);padding:30px 24px;text-align:center">
+        <p style="font-size:13px;color:var(--mt)">
+            Built with precision for LinkedIn creators. <span style="color:var(--ac)">LinkedGen</span> — No sign-up required.
+        </p>
+    </footer>
+
+</div>
+
+<script>
+/* ========================================
+   PARTICLES
+   ======================================== */
+(function() {
+    var field = document.getElementById('pf');
+    for (var i = 0; i < 30; i++) {
+        var p = document.createElement('div');
+        p.className = 'pt';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.top = (40 + Math.random() * 60) + '%';
+        p.style.animationDelay = (Math.random() * 8) + 's';
+        p.style.animationDuration = (6 + Math.random() * 6) + 's';
+        var sz = (1 + Math.random() * 2) + 'px';
+        p.style.width = sz;
+        p.style.height = sz;
+        if (Math.random() > 0.5) p.style.background = 'var(--cy)';
+        field.appendChild(p);
+    }
+})();
+
+/* ========================================
+   TOAST SYSTEM
+   ======================================== */
+function showToast(msg, icon) {
+    icon = icon || 'fa-check';
+    var tw = document.getElementById('tw');
+    var t = document.createElement('div');
+    t.className = 'tt';
+    t.innerHTML = '<i class="fa-solid ' + icon + '" style="color:var(--gn);font-size:16px"></i> ' + msg;
+    tw.appendChild(t);
+    setTimeout(function() {
+        t.classList.add('to');
+        setTimeout(function() { t.remove(); }, 300);
+    }, 2500);
+}
+
+/* ========================================
+   CHARACTER COUNT
+   ======================================== */
+function updateCharCount() {
+    var input = document.getElementById('userInput');
+    var count = document.getElementById('charCount');
+    var len = input.value.length;
+    count.textContent = len + ' / 2000';
+    count.style.color = len > 2000 ? '#ef4444' : len > 1800 ? '#f59e0b' : 'var(--mt)';
+}
+
+/* ========================================
+   TAB SWITCHING
+   ======================================== */
+function switchTab(tab) {
+    document.getElementById('tabCap').className = 'tbtn' + (tab === 'caption' ? ' act' : '');
+    document.getElementById('tabRep').className = 'tbtn' + (tab === 'reply' ? ' act' : '');
+    document.getElementById('capPanel').style.display = tab === 'caption' ? 'block' : 'none';
+    document.getElementById('repPanel').style.display = tab === 'reply' ? 'block' : 'none';
+}
+
+/* ========================================
+   TEXT STORE FOR SAFE COPYING
+   ======================================== */
+var textStore = {};
+var storeId = 0;
+
+function copyByIdx(idx) {
+    var txt = textStore[idx];
+    if (!txt) return;
+    navigator.clipboard.writeText(txt).then(function() {
+        showToast('Copied to clipboard!', 'fa-clipboard-check');
+        var btn = document.querySelector('[data-cidx="' + idx + '"]');
+        if (btn) {
+            var card = btn.closest('.rcard');
+            if (card) {
+                card.classList.add('cflash');
+                setTimeout(function() { card.classList.remove('cflash'); }, 400);
+            }
+        }
+    });
+}
+
+/* ========================================
+   HELPERS
+   ======================================== */
+function extractKeyTopic(text) {
+    var words = text.split(/\s+/).filter(function(w) { return w.length > 4; });
+    if (words.length === 0) return 'This topic';
+    var sorted = words.slice().sort(function(a, b) { return b.length - a.length; });
+    var top = sorted.slice(0, Math.min(3, sorted.length));
+    return top.join(', ');
+}
+
+function getRandomItems(arr, count) {
+    var shuffled = arr.slice().sort(function() { return Math.random() - 0.5; });
+    return shuffled.slice(0, Math.min(count, shuffled.length));
+}
+
+function formatCaptionHTML(text) {
+    return text.replace(/(#\w+)/g, '<span class="htag">$1</span>')
+               .replace(/→/g, '<span style="color:var(--ac);margin-right:4px">→</span>');
+}
+
+/* ========================================
+   CAPTION TEMPLATES
+   ======================================== */
+var captionTemplates = {
+    professional: [
+        function(ctx, ind) {
+            return ctx + '\n\nHere\'s what most people miss:\n\n→ The real value isn\'t in the what — it\'s in the how\n→ Execution beats perfection every single time\n→ The best strategy adapts, not adheres\n\nThe ' + ind + ' leaders? They don\'t just build products.\nThey build systems that outlast them.\n\nWhat\'s the one principle you refuse to compromise on?\n\n#LinkedIn #ProfessionalGrowth #Leadership';
+        },
+        function(ctx, ind) {
+            return 'I\'ve been thinking about this a lot lately.\n\n' + ctx + '\n\n3 lessons that changed my perspective:\n\n1. Clarity comes from action, not overthinking\n2. The best feedback is the one you didn\'t ask for\n3. Sustainable growth > overnight success\n\nThe ' + ind + ' space rewards patience and depth.\nNot noise and shortcuts.\n\nAgree or disagree?\n\n#CareerGrowth #ProfessionalDevelopment';
+        },
+        function(ctx, ind) {
+            return ctx + '\n\nLet\'s talk about what actually moves the needle:\n\n✓ Deep work over busy work\n✓ Data-driven decisions over gut feelings\n✓ Long-term thinking over quick wins\n\nIn ' + ind + ', the professionals who thrive share one trait:\nThey commit to the fundamentals when everyone else chases trends.\n\nWhat fundamental are you doubling down on?\n\n#' + (ind === 'tech' ? 'Tech' : 'Business') + ' #GrowthMindset #Leadership';
+        },
+        function(ctx, ind) {
+            return 'Here\'s an unpopular opinion:\n\n' + ctx + '\n\nThe industry narrative says: move fast, break things.\nReality says: move intentionally, build sustainably.\n\nThe difference between good and great in ' + ind + ':\n→ Good teams ship features\n→ Great teams ship outcomes\n\nThis isn\'t about working harder.\nIt\'s about working on what actually matters.\n\nThoughts?\n\n#Innovation #Strategy #Leadership';
+        },
+        function(ctx, ind) {
+            return ctx + '\n\nMost advice you\'ll read today will be generic.\nSo here\'s something specific:\n\n→ Document your process before scaling it\n→ Hire for alignment, train for skill\n→ Measure what you\'ll regret not measuring\n\nThe ' + ind + ' professionals who consistently outperform aren\'t more talented.\nThey\'re more intentional.\n\nIntentionality is the ultimate competitive advantage.\n\n#ProfessionalGrowth #Career #IntentionalLiving';
+        }
+    ],
+    casual: [
+        function(ctx, ind) {
+            return 'Real talk: ' + ctx + '\n\nAnd honestly? I wish someone told me this earlier.\n\nThe thing nobody talks about in ' + ind + ':\n\nIt\'s not about having all the answers.\nIt\'s about asking better questions.\n\nWho else has been on this journey? Drop a 🔥 if you relate.\n\n#' + (ind === 'tech' ? 'TechCommunity' : 'CareerJourney') + ' #RealTalk #Growth';
+        },
+        function(ctx, ind) {
+            return 'Okay, can we be honest for a second?\n\n' + ctx + '\n\nThe biggest myth in ' + ind + ': you need to have it all figured out.\n\nSpoiler: nobody does.\n\nWhat actually works:\n→ Start messy\n→ Iterate fast\n→ Keep showing up\n\nThat\'s it. That\'s the post.\n\nWho\'s with me? 👋\n\n#AuthenticLeadership #Career #KeepItReal';
+        },
+        function(ctx, ind) {
+            return ctx + '\n\nI used to think success in ' + ind + ' was about being the smartest person in the room.\n\nTurns out, it\'s about:\n\n1. Being the most curious 🧠\n2. Being the most coachable 📖\n3. Being the most consistent 🔁\n\nSmart gets you in the door.\nCurious keeps you in the room.\n\nWhat\'s your #1 career truth?\n\n#CareerAdvice #LinkedIn #LessonsLearned';
+        },
+        function(ctx, ind) {
+            return 'Hot take incoming 🌶️\n\n' + ctx + '\n\nEveryone\'s talking about hustle culture.\nMeanwhile, the people actually winning in ' + ind + '? They\'re talking about:\n\n→ Recovery\n→ Reflection\n→ Recalibration\n\nYou can\'t sprint a marathon.\nBut you can walk further than anyone who stopped running.\n\nSound familiar?\n\n#WorkLifeBalance #Growth #Mindset';
+        },
+        function(ctx, ind) {
+            return ctx + '\n\nHere\'s what I\'ve learned after many coffee-fueled mornings ☕\n\nIn ' + ind + ', progress isn\'t linear.\nSome days you crush it. Some days it crushes you.\n\nBut the pattern I see in people who make it?\n\nThey don\'t take the setbacks personally.\nThey take them as data.\n\nWhat\'s your biggest "failure" that became data?\n\n#Resilience #CareerGrowth #Learning';
+        }
+    ],
+    inspirational: [
+        function(ctx, ind) {
+            return ctx + '\n\nThis is your sign that you\'re closer than you think.\n\nEvery great ' + ind + ' breakthrough started with someone who:\n\n→ Refused to accept "that\'s how it\'s done"\n→ Persisted when the data said stop\n→ Believed before anyone else did\n\nYour current chapter isn\'t your final one.\nKeep writing. 🚀\n\n#Motivation #Inspiration #NeverGiveUp';
+        },
+        function(ctx, ind) {
+            return 'Read this if you\'re about to give up:\n\n' + ctx + '\n\nThe ' + ind + ' journey isn\'t for the faint of heart.\nBut here\'s what the doubters don\'t understand:\n\n→ Every "overnight success" was 10 years in the making\n→ Every breakthrough required 99 invisible failures\n→ Every leader was once a beginner who refused to quit\n\nYou\'re not behind. You\'re building.\nAnd building is the bravest thing you can do.\n\nWho needed to hear this today? 💛\n\n#InspirationalLeadership #Courage #KeepGoing';
+        },
+        function(ctx, ind) {
+            return ctx + '\n\nI want you to remember something:\n\nThe ' + ind + ' professionals you admire?\nThey weren\'t born with a manual.\n\nThey figured it out.\nOne imperfect step at a time.\n\n→ They asked the "dumb" questions\n→ They made the "rookie" mistakes\n→ They took the "risky" bets\n\nAnd that\'s exactly why they\'re where they are.\n\nYour imperfection is your superpower. Use it. ⚡\n\n#LeadershipInspiration #Growth #Authenticity';
+        },
+        function(ctx, ind) {
+            return ctx + '\n\nThe world doesn\'t need another follower of the playbook.\nThe ' + ind + ' world needs:\n\n→ Pioneers who challenge assumptions\n→ Builders who create without permission\n→ Thinkers who question without fear\n\nYour unique perspective isn\'t a liability.\nIt\'s your differentiator.\n\nDon\'t shrink to fit.\nExpand to lead. 🌟\n\n#ThoughtLeadership #Innovation #BeTheChange';
+        },
+        function(ctx, ind) {
+            return 'Stop scrolling. Read this. ⏸️\n\n' + ctx + '\n\nOne year from now, you\'ll wish you started today.\n\nBut "today" doesn\'t mean having it all figured out.\nIt means:\n\n→ Taking one action that scares you\n→ Having one conversation that shifts your thinking\n→ Making one decision your future self will thank you for\n\nThe ' + ind + ' space is waiting for your contribution.\n\nAre you ready? 🔥\n\n#TakeAction #CareerGrowth #NoExcuses';
+        }
+    ],
+    storytelling: [
+        function(ctx, ind) {
+            return 'March 2021. I was sitting in my home office, staring at a screen that said:\n\n"Your ' + ind + ' approach isn\'t working."\n\n' + ctx + '\n\nThat night, I made a decision that changed everything.\n\nI stopped optimizing for what worked.\nAnd started experimenting with what could work.\n\n6 months later → 3x the impact.\n12 months later → Industry recognition.\n\nThe lesson? Your biggest growth lives on the other side of your comfort zone.\n\nWhat\'s your turning point story?\n\n#CareerStory #ProfessionalJourney #Transformation';
+        },
+        function(ctx, ind) {
+            return 'Let me tell you about the worst meeting of my career.\n\n' + ctx + '\n\nI walked in confident. I walked out humbled.\n\nHere\'s what that terrible meeting taught me:\n\n→ Confidence without competence is dangerous\n→ Feedback is a gift, even when it stings\n→ The best leaders eat humble pie for breakfast\n\nThat "failure" became the foundation of everything I\'ve built since in ' + ind + '.\n\nFunny how that works. 🎯\n\n#LeadershipLessons #Career #GrowthThroughFailure';
+        },
+        function(ctx, ind) {
+            return 'Two years ago, someone told me:\n\n"You\'ll never make it in ' + ind + ' with that approach."\n\n' + ctx + '\n\nI could\'ve listened.\nInstead, I doubled down on what I believed.\n\nHere\'s what happened:\n\nMonth 1-3: Crickets 🦗\nMonth 4-6: Small wins 🌱\nMonth 7-12: Momentum 📈\nMonth 13+: Scale 🚀\n\nThe lesson? Conviction + patience is an unfair advantage.\n\nWhat would you do if you knew you couldn\'t fail?\n\n#Entrepreneurship #Persistence #StoryTime';
+        },
+        function(ctx, ind) {
+            return 'The email that changed my career arrived at 11:47 PM on a Tuesday.\n\n' + ctx + '\n\nIt was 3 sentences. But those 3 sentences reframed my entire approach to ' + ind + ':\n\n→ "Stop managing. Start leading."\n→ "Stop reacting. Start architecting."\n→ "Stop competing. Start creating."\n\nI printed that email. It\'s still on my desk.\n\nSometimes the most profound advice comes in the smallest packages.\n\nWhat\'s the best career advice you\'ve ever received? ✉️\n\n#CareerAdvice #Mentorship #PivotPoint';
+        },
+        function(ctx, ind) {
+            return 'Picture this: It\'s 2019. I\'m in a ' + ind + ' conference room.\n\n' + ctx + '\n\nI raised my hand and asked what everyone else was thinking.\nThe room went silent.\n\nBut then... the CEO said: "That\'s exactly the question we needed."\n\nThat moment taught me:\n\n→ The courage to speak up is rare\n→ The right question > the right answer\n→ Leadership isn\'t a title — it\'s a behavior\n\nSince then, I\'ve never been afraid to be the one who asks.\n\nWhat question are you afraid to ask?\n\n#CourageAtWork #Leadership #BreakTheSilence';
+        }
+    ],
+    bold: [
+        function(ctx, ind) {
+            return 'Unpopular opinion: ' + ctx + '\n\nMost ' + ind + ' advice is recycled garbage.\n\nHere\'s what actually works:\n\n→ Ignore best practices. Invent better ones.\n→ Don\'t network. Build a network effect.\n→ Stop reading this. Start doing something.\n\nThe gap between knowing and doing is where careers go to die.\n\nCross the gap. Now.\n\n#NoFilter #RealTalk #Execute';
+        },
+        function(ctx, ind) {
+            return 'Let\'s cut the fluff.\n\n' + ctx + '\n\nThe 3 hard truths about ' + ind + ' that nobody posts about:\n\n1. Talent is table stakes. Discipline wins.\n2. Your network isn\'t your net worth unless you deliver value first.\n3. The market doesn\'t care about your feelings. It cares about your output.\n\nHard? Yes.\nTrue? Absolutely.\n\nDeal with it. Then dominate. 💪\n\n#HardTruths #Business #NoBS';
+        },
+        function(ctx, ind) {
+            return ctx + '\n\nI\'m tired of watching talented people in ' + ind + ' play small.\n\nSo here\'s your wake-up call:\n\n→ You don\'t need another certification. You need a body of work.\n→ You don\'t need permission. You need conviction.\n→ You don\'t need a plan. You need a decision.\n\nStop preparing for a moment that\'s already here.\n\nThe best time to act was yesterday.\nThe second best time is right now.\n\n#TakeTheLeap #CareerAdvice #NoMoreExcuses';
+        },
+        function(ctx, ind) {
+            return 'Controversial take:\n\n' + ctx + '\n\nThe ' + ind + ' industry has a conformity problem.\n\nEveryone\'s reading the same books.\nFollowing the same frameworks.\nCopying the same strategies.\n\nAnd then wondering why they get the same results.\n\nIf you want different results:\n→ Think differently\n→ Execute relentlessly\n→ Be comfortable being misunderstood\n\nDare to be the outlier. 🎯\n\n#ContrarianThinking #Innovation #StandOut';
+        },
+        function(ctx, ind) {
+            return 'Here\'s the truth no one in ' + ind + ' wants to admit:\n\n' + ctx + '\n\nYour comfort zone is killing your potential.\n\n→ That "safe" job? It\'s making you replaceable.\n→ That "proven" strategy? It\'s already obsolete.\n→ That "perfect" timing? It doesn\'t exist.\n\nThe people who win?\nThey didn\'t wait for permission.\nThey didn\'t wait for certainty.\nThey just went.\n\nSo what are you waiting for?\n\n#DisruptYourself #Career #BoldMoves';
+        }
+    ]
+};
+
+/* ========================================
+   REPLY TEMPLATES
+   ======================================== */
+var replyTemplates = {
+    professional: [
+        function(ctx) {
+            return 'Excellent insight! ' + extractKeyTopic(ctx) + ' is such an important topic in today\'s landscape.\n\nI\'d add that the human element often gets overlooked when we focus purely on metrics. The teams that balance data-driven decisions with empathy consistently outperform.\n\nWould love to hear more about your experience with this approach.';
+        },
+        function(ctx) {
+            return 'Really appreciate you sharing this. ' + extractKeyTopic(ctx) + ' resonates deeply.\n\nIn my experience, the execution phase is where most strategies diverge from the vision. Having a clear feedback loop at every stage has been game-changing for our team.\n\nWhat frameworks have you found most effective?';
+        },
+        function(ctx) {
+            return 'This is spot on. The point about ' + extractKeyTopic(ctx) + ' especially stands out.\n\nI\'ve seen this firsthand — the organizations that treat this as a core competency rather than an afterthought consistently see 2-3x better outcomes.\n\nThanks for articulating this so clearly.';
+        }
+    ],
+    casual: [
+        function(ctx) {
+            return 'Love this! ' + extractKeyTopic(ctx) + ' is SO underrated. 🔥\n\nI\'ve been saying this for a while — it\'s refreshing to see more people talking about it. Completely agree with your take here.\n\nKeep these posts coming!';
+        },
+        function(ctx) {
+            return 'Okay, can we be honest for a second?\n\n' + ctx.slice(0, 80) + '...\n\nThe biggest myth: you need to have it all figured out.\n\nSpoiler: nobody does.\n\nWhat actually works:\n- Start messy\n- Iterate fast\n- Keep showing up\n\nWho\'s with me? 👋';
+        },
+        function(ctx) {
+            return 'Couldn\'t agree more! 😊\n\n' + extractKeyTopic(ctx) + ' was a game-changer for us too. Once we made that shift, everything clicked.\n\nWould love to connect and swap notes on this!';
+        }
+    ],
+    insightful: [
+        function(ctx) {
+            return 'Great post! One layer I\'d add to ' + extractKeyTopic(ctx) + ':\n\nThe compounding effect is often underestimated. Small, consistent actions in this direction don\'t just add up — they multiply. The organizations that understand this have a structural advantage.\n\nThis is why patience + conviction beats speed + doubt every time.';
+        },
+        function(ctx) {
+            return 'Really thoughtful take on ' + extractKeyTopic(ctx) + '. Here\'s a contrarian angle to consider:\n\nWhat if the "best practice" approach is actually the ceiling, not the floor? The most impactful results I\'ve seen came from challenging the conventional framework entirely.\n\nThe meta-lesson: the best strategy might be to have no fixed strategy at all.';
+        },
+        function(ctx) {
+            return 'This is the kind of nuance ' + extractKeyTopic(ctx) + ' needs more of.\n\nI\'d break it down further into three dimensions:\n1. Individual capability (what you can do)\n2. System design (what the system allows)\n3. Incentive alignment (what the environment rewards)\n\nMost discussions only cover #1. The real leverage is in #2 and #3.';
+        }
+    ],
+    supportive: [
+        function(ctx) {
+            return 'Thank you for being so transparent about this. ' + extractKeyTopic(ctx) + ' isn\'t easy, and sharing your journey takes courage. 💛\n\nYour experience will help so many others who are going through similar challenges. That\'s the real power of this community.\n\nRooting for you! Keep going.';
+        },
+        function(ctx) {
+            return 'This takes guts to share. ' + extractKeyTopic(ctx) + ' is something many experience but few talk about openly.\n\nYour honesty is refreshing and I have no doubt it\'ll resonate with a lot of people here. We grow most from the moments that test us.\n\nWishing you all the best ahead! 🙌';
+        },
+        function(ctx) {
+            return 'Appreciate you sharing this so openly! ' + extractKeyTopic(ctx) + ' is a journey, and it sounds like you\'re exactly where you need to be — even if it doesn\'t feel like it yet.\n\nThe best chapters often start with the hardest pages. Keep writing yours. ✨';
+        }
+    ],
+    engaging: [
+        function(ctx) {
+            return 'Such a relevant point about ' + extractKeyTopic(ctx) + '! It makes me wonder:\n\n→ How do you see this evolving over the next 2-3 years?\n→ Are there specific patterns you\'ve noticed that predict success here?\n→ What\'s the #1 mistake people make when approaching this?\n\nWould love to hear your thoughts!';
+        },
+        function(ctx) {
+            return 'Interesting perspective on ' + extractKeyTopic(ctx) + '! I have a slightly different take:\n\nDo you think the industry is overcorrecting or underestimating the importance of this?\n\nI\'ve seen compelling arguments on both sides. Would love to hear what swayed your view.';
+        },
+        function(ctx) {
+            return 'This sparks so many thoughts about ' + extractKeyTopic(ctx) + '! I\'m curious:\n\n1. What was the "aha moment" that led you to this conclusion?\n2. How would you apply this in a resource-constrained environment?\n3. What\'s the one book or resource that shaped your thinking here?\n\nGreat food for thought! 🧠';
+        }
+    ]
+};
+
+/* ========================================
+   GENERATE CAPTIONS
+   ======================================== */
+var isGenerating = false;
+
+function generateCaptions() {
+    var input = document.getElementById('userInput').value.trim();
+    if (!input) {
+        showToast('Please enter a topic or context first', 'fa-exclamation-triangle');
+        document.getElementById('userInput').focus();
+        return;
+    }
+    if (isGenerating) return;
+    isGenerating = true;
+
+    var btn = document.getElementById('genCapBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating...';
+
+    var container = document.getElementById('capResults');
+    container.innerHTML = '';
+    for (var i = 0; i < 3; i++) {
+        var shim = document.createElement('div');
+        shim.className = 'shim';
+        shim.style.height = '180px';
+        shim.style.width = '100%';
+        container.appendChild(shim);
+    }
+
+    var tone = document.getElementById('toneSelect').value;
+    var ind = document.getElementById('indSelect').value;
+    var templates = captionTemplates[tone] || captionTemplates.professional;
+    var selected = getRandomItems(templates, 3);
+
+    setTimeout(function() {
+        container.innerHTML = '';
+
+        for (var j = 0; j < selected.length; j++) {
+            var text = selected[j](input, ind);
+            var sidx = storeId++;
+            textStore[sidx] = text;
+
+            var card = document.createElement('div');
+            card.className = 'rcard sin';
+            card.style.animationDelay = (j * 0.12) + 's';
+
+            card.innerHTML =
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">' +
+                    '<div style="display:flex;align-items:center;gap:8px">' +
+                        '<span class="tag tag-ac"><i class="fa-solid fa-file-lines" style="font-size:9px"></i> Caption ' + (j + 1) + '</span>' +
+                        '<span class="tag tag-mt">' + text.length + ' chars</span>' +
+                    '</div>' +
+                    '<button class="btni" title="Copy" data-cidx="' + sidx + '" onclick="copyByIdx(' + sidx + ')">' +
+                        '<i class="fa-regular fa-copy"></i>' +
+                    '</button>' +
+                '</div>' +
+                '<div style="font-size:14px;line-height:1.75;color:rgba(240,242,245,0.9);white-space:pre-wrap;word-break:break-word">' + formatCaptionHTML(text) + '</div>';
+
+            container.appendChild(card);
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Captions';
+        isGenerating = false;
+        showToast('3 captions generated!', 'fa-bolt');
+    }, 1200);
+}
+
+/* ========================================
+   GENERATE REPLIES
+   ======================================== */
+function generateReplies() {
+    var input = document.getElementById('userInput').value.trim();
+    if (!input) {
+        showToast('Please paste a LinkedIn post to reply to', 'fa-exclamation-triangle');
+        document.getElementById('userInput').focus();
+        return;
+    }
+    if (isGenerating) return;
+    isGenerating = true;
+
+    var btn = document.getElementById('genRepBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating...';
+
+    var container = document.getElementById('repResults');
+    container.innerHTML = '';
+    for (var i = 0; i < 5; i++) {
+        var shim = document.createElement('div');
+        shim.className = 'shim';
+        shim.style.height = '120px';
+        shim.style.width = '100%';
+        container.appendChild(shim);
+    }
+
+    var replyStyles = ['professional', 'casual', 'insightful', 'supportive', 'engaging'];
+    var styleLabels = {
+        professional: { label: 'Professional', icon: 'fa-briefcase' },
+        casual:       { label: 'Casual',       icon: 'fa-face-smile' },
+        insightful:   { label: 'Insightful',   icon: 'fa-lightbulb' },
+        supportive:   { label: 'Supportive',   icon: 'fa-heart' },
+        engaging:     { label: 'Engaging',     icon: 'fa-comments' }
+    };
+
+    setTimeout(function() {
+        container.innerHTML = '';
+
+        for (var j = 0; j < replyStyles.length; j++) {
+            var style = replyStyles[j];
+            var tmpls = replyTemplates[style];
+            var tmpl = tmpls[Math.floor(Math.random() * tmpls.length)];
+            var text = tmpl(input);
+            var sidx = storeId++;
+            textStore[sidx] = text;
+
+            var meta = styleLabels[style];
+
+            var card = document.createElement('div');
+            card.className = 'rcard sin';
+            card.style.animationDelay = (j * 0.1) + 's';
+
+            card.innerHTML =
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
+                    '<div style="display:flex;align-items:center;gap:8px">' +
+                        '<span class="tag tag-cy"><i class="fa-solid ' + meta.icon + '" style="font-size:9px"></i> ' + meta.label + '</span>' +
+                        '<span class="tag tag-mt">' + text.length + ' chars</span>' +
+                    '</div>' +
+                    '<button class="btni" title="Copy" data-cidx="' + sidx + '" onclick="copyByIdx(' + sidx + ')">' +
+                        '<i class="fa-regular fa-copy"></i>' +
+                    '</button>' +
+                '</div>' +
+                '<div style="font-size:14px;line-height:1.75;color:rgba(240,242,245,0.9);white-space:pre-wrap;word-break:break-word">' + formatCaptionHTML(text) + '</div>';
+
+            container.appendChild(card);
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-comments"></i> Generate Replies';
+        isGenerating = false;
+        showToast('5 replies generated!', 'fa-comments');
+    }, 1000);
+}
+
+/* ========================================
+   KEYBOARD SHORTCUT
+   ======================================== */
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        var capActive = document.getElementById('tabCap').classList.contains('act');
+        if (capActive) {
+            generateCaptions();
+        } else {
+            generateReplies();
+        }
+    }
+});
+</script>
+</body>
+</html>
